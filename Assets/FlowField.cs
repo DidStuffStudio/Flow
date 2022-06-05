@@ -1,50 +1,140 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
+using Random = UnityEngine.Random;
 
 public class FlowField : MonoBehaviour
 {
   private Vector3[] _vectors;
   private GameObject[] _arrows;
+  private FlowParticle[] _particles;
   [SerializeField] private int width, height, depth;
   [SerializeField] private float spacing;
-  [SerializeField] private GameObject arrow;
+  [SerializeField] private GameObject arrow, particle;
+  [SerializeField] private float rateOfChange = 100.0f;
+  [SerializeField] private int particleCount = 100;
+  [SerializeField] private float forceMultiplier = 100;
+  [SerializeField] private float particleMass = 1;
+  [SerializeField] private float particleDrag = 0.1f;
+  
+
+  public int Width => width;
+
+  public int Height => height;
+
+  public int Depth => depth;
+
+  public float Spacing => spacing;
 
   private void Start()
   {
-    _vectors = new Vector3[width*height*depth];
-    _arrows = new GameObject[width*height*depth];
-    for (int i = 0; i < width; i++)
+    InstantiateGrid();
+    InstantiateParticles();
+  }
+
+
+
+  private void Update()
+  {
+    UpdateVectors();
+    UpdateParticles();
+  }
+
+  private void InstantiateGrid()
+  {
+    _vectors = new Vector3[Width*Height*Depth];
+    _arrows = new GameObject[Width*Height*Depth];
+    for (int i = 0; i < Width; i++)
     {
-      for (int j = 0; j < height; j++)
+      for (int j = 0; j < Height; j++)
       {
-        for (int k = 0; k < depth; k++)
+        for (int k = 0; k < Depth; k++)
         {
           var arrowGO = Instantiate(arrow);
-          arrowGO.transform.position = new Vector3(i * spacing, j * spacing, k * spacing);
-          var id = i + j*width + k*width*height;
+          arrowGO.transform.position = new Vector3(i * Spacing, j * Spacing, k * Spacing);
+          var id = i + j*Width + k*Width*Height;
           _arrows[id] = arrowGO;
         }
       }
     }
   }
 
-  private void Update()
+  private void InstantiateParticles()
   {
-    for (int i = 0; i < width; i++)
+    
+    _particles = new FlowParticle[particleCount];
+    for (int i = 0; i < particleCount; i++)
     {
-      for (int j = 0; j < height; j++)
+      var p = Instantiate(particle);
+      var pos = Vector3.zero;
+      pos.x = Random.Range(0, width*spacing);
+      pos.y = Random.Range(0, height*spacing);
+      pos.z = Random.Range(0, depth*spacing);
+      _particles[i] = p.GetComponent<FlowParticle>();
+      _particles[i].Field = this;
+      _particles[i].SetBounds();
+      _particles[i].SetPosition(pos);
+    }
+  }
+  
+  private void UpdateVectors()
+  {
+    for (int i = 0; i < Width; i++)
+    {
+      for (int j = 0; j < Height; j++)
       {
-        for (int k = 0; k < depth; k++)
+        for (int k = 0; k < Depth; k++)
         {
           // blockIdx.x + blockIdx.y * gridDim.x  + gridDim.x * gridDim.y * blockIdx.z; 
-          var id = i + j*width + k*width*height;
-          _vectors[id] = PerlinNoise4D(i, j, k, Time.time);
-          _arrows[id].transform.Rotate(_vectors[id]);
+          var id = i + j*Width + k*Width*Height;
+          _vectors[id] = PerlinNoise4D(i, j, k, Time.fixedTime*rateOfChange/100f);
+          //_arrows[id].transform.Rotate(_vectors[id]);
+          _arrows[id].transform.rotation = Quaternion.Euler((_vectors[id])*180);
         }
       }
     }
+  }
+  
+  private void UpdateParticles()
+  {
+    for (int i = 0; i < particleCount; i++)
+    {
+      var pPos = _particles[i].CurrentPos;
+      var x = Mathf.FloorToInt(pPos.x);
+      var y = Mathf.FloorToInt(pPos.y);
+      var z = Mathf.FloorToInt(pPos.z);
+      // blockIdx.x + blockIdx.y * gridDim.x  + gridDim.x * gridDim.y * blockIdx.z; 
+          var id = x + y*Width + z*Width*Height;
+          id /= (int)spacing;
+          //var force = PerlinNoise4D(x, y, z, Time.fixedTime*rateOfChange/100f);
+          _particles[i].SetPosition(CalculateNewPosition(_particles[i], _vectors[id]*forceMultiplier));
+    }
+  }
+
+  private Vector3 CalculateNewPosition(FlowParticle p, Vector3 flowAcceleration)
+  {
+    var currentPos = p.CurrentPos;
+    var velocity = p.Velocity;
+    var acceleration = p.Acceleration;
+    var dt = Time.fixedDeltaTime;
+    
+    var newPos = currentPos + velocity*dt + acceleration*(dt*dt*0.5f);
+    var newAcc = CalculateForces(velocity, flowAcceleration); // only needed if acceleration is not constant
+    var newVel = velocity + (acceleration+newAcc)*(dt*0.5f);
+    
+    p.Velocity = newVel;
+    p.Acceleration = newAcc;
+    return newPos;
+  }
+  
+  private Vector3 CalculateForces(Vector3 velocity, Vector3 flowAcceleration)
+  {
+    var absoluteVelocity = new Vector3(Mathf.Abs(velocity.x), Mathf.Abs(velocity.y), Mathf.Abs(velocity.z));
+    var dragForce = 0.5f * particleDrag * Vector3.Scale(velocity,absoluteVelocity); // D = 0.5 * (rho * C * Area * vel^2)
+    var dragAcc = dragForce / particleMass; // a = F/m
+    return flowAcceleration - dragAcc;
   }
 
 
@@ -74,12 +164,19 @@ public class FlowField : MonoBehaviour
       float wy = Mathf.PerlinNoise(w, y);
       float wz = Mathf.PerlinNoise(w, z);
 
-      var outX = (xy + xz + xw) / 3;
-      var outY = (yx + yz + yw) / 3;
-      var outZ = (zx + zy + zw) / 3;
+      var outX = (xy + xz + xw + wx) / 4;
+      var outY = (yx + yz + yw +wy) /4;
+      var outZ = (zx + zy + zw + wz) /4;
       
-      return new Vector3(outX,outY,outZ);
+      return new Vector3(outX-0.5f,outY-0.5f,outZ-0.5f);
       //return (xy + xz + xw + yx + yz + yw + zx + zy + zw + wx + wy + wz)/12;
+    }
+
+    public void SwitchParticle(FlowParticle oldP, FlowParticle newP)
+    {
+      var pList = _particles.ToList();
+      var index = pList.IndexOf(oldP);
+      _particles[index] = newP;
     }
   
 }
