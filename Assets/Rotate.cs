@@ -21,5 +21,6 @@ public class Rotate : MonoBehaviour
     {
         
         transform.RotateAround(_positionToLookAround,Vector3.up,speed*Time.deltaTime);
+        transform.LookAt(_positionToLookAround);
     }
 }

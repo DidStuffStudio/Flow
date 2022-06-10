@@ -7,7 +7,7 @@ using Random = UnityEngine.Random;
 
 public class FlowField : MonoBehaviour
 {
-  private Vector3[] _vectors;
+  public Vector3[] _vectors;
   private GameObject[] _arrows;
   private FlowParticle[] _particles;
   [SerializeField] private int width, height, depth;
@@ -18,7 +18,9 @@ public class FlowField : MonoBehaviour
   [SerializeField] private float forceMultiplier = 100;
   [SerializeField] private float particleMass = 1;
   [SerializeField] private float particleDrag = 0.1f;
-  
+  [SerializeField] private float perlinDetail = 1.0f;
+  public bool drawArrows;
+
 
   public int Width => width;
 
@@ -46,15 +48,17 @@ public class FlowField : MonoBehaviour
   {
     _vectors = new Vector3[Width*Height*Depth];
     _arrows = new GameObject[Width*Height*Depth];
+    if (!drawArrows) return;
     for (int i = 0; i < Width; i++)
     {
       for (int j = 0; j < Height; j++)
       {
         for (int k = 0; k < Depth; k++)
         {
+          
+          var id = i + j*Width + k*Width*Height;
           var arrowGO = Instantiate(arrow);
           arrowGO.transform.position = new Vector3(i * Spacing, j * Spacing, k * Spacing);
-          var id = i + j*Width + k*Width*Height;
           _arrows[id] = arrowGO;
         }
       }
@@ -76,40 +80,41 @@ public class FlowField : MonoBehaviour
       _particles[i].Field = this;
       _particles[i].SetBounds();
       _particles[i].SetPosition(pos);
+      /*_particles[i].transform.position = pos;
+      _particles[i].CurrentPos = pos;
+      _particles[i].AcceptNewPosition = true;*/
     }
   }
   
   private void UpdateVectors()
   {
-    for (int i = 0; i < Width; i++)
+    for (var i = 0; i < Width; i++)
     {
-      for (int j = 0; j < Height; j++)
+      for (var j = 0; j < Height; j++)
       {
-        for (int k = 0; k < Depth; k++)
+        for (var k = 0; k < Depth; k++)
         {
           // blockIdx.x + blockIdx.y * gridDim.x  + gridDim.x * gridDim.y * blockIdx.z; 
           var id = i + j*Width + k*Width*Height;
-          _vectors[id] = PerlinNoise4D(i, j, k, Time.fixedTime*rateOfChange/100f);
-          //_arrows[id].transform.Rotate(_vectors[id]);
-          _arrows[id].transform.rotation = Quaternion.Euler((_vectors[id])*180);
+          //_vectors[id] = PerlinNoise3D(i*perlinDetail, j*perlinDetail, k*perlinDetail, (Time.fixedTime*rateOfChange/100f));
+          _vectors[id] = PerlinNoise3D(i*perlinDetail, j*perlinDetail, k*perlinDetail + (Time.fixedTime*rateOfChange/100f));
+          if(drawArrows)_arrows[id].transform.LookAt(_vectors[id]);
         }
       }
     }
   }
-  
+
   private void UpdateParticles()
   {
-    for (int i = 0; i < particleCount; i++)
+    for (var i = 0; i < particleCount; i++)
     {
       var pPos = _particles[i].CurrentPos;
       var x = Mathf.FloorToInt(pPos.x);
       var y = Mathf.FloorToInt(pPos.y);
       var z = Mathf.FloorToInt(pPos.z);
-      // blockIdx.x + blockIdx.y * gridDim.x  + gridDim.x * gridDim.y * blockIdx.z; 
-          var id = x + y*Width + z*Width*Height;
-          id /= (int)spacing;
-          //var force = PerlinNoise4D(x, y, z, Time.fixedTime*rateOfChange/100f);
-          _particles[i].SetPosition(CalculateNewPosition(_particles[i], _vectors[id]*forceMultiplier));
+
+      var id = x + y * (Width / (int) spacing) + z * (Width / (int) spacing) * (Height / (int) spacing);
+      _particles[i].SetPosition(CalculateNewPosition(_particles[i], _vectors[id].normalized * forceMultiplier));
     }
   }
 
@@ -139,37 +144,48 @@ public class FlowField : MonoBehaviour
 
 
 
-    private Vector3 PerlinNoise4D(float x, float y, float z, float w)
+    private Vector3 PerlinNoise3D(float x, float y, float z)//, float w)
     {
       //X coordinate
-      float xy = Mathf.PerlinNoise(x, y);
-      float xz = Mathf.PerlinNoise(x, z);
-      float xw = Mathf.PerlinNoise(x, w);
+      var xy = Mathf.PerlinNoise(x, y);
+      var xz = Mathf.PerlinNoise(x, z);
+      //var xw = Mathf.PerlinNoise(x, w);
  
  
       //Ycoordinate
-      float yx = Mathf.PerlinNoise(y, x);
-      float yz = Mathf.PerlinNoise(y, z);
-      float yw = Mathf.PerlinNoise(y, w);
+      var yx = Mathf.PerlinNoise(y, x);
+      var yz = Mathf.PerlinNoise(y, z);
+      //var yw = Mathf.PerlinNoise(y, w);
  
  
       //Z coordinate
-      float zx = Mathf.PerlinNoise(z, x);
-      float zy = Mathf.PerlinNoise(z, y);
-      float zw = Mathf.PerlinNoise(z, w);
+      var zx = Mathf.PerlinNoise(z, x);
+      var zy = Mathf.PerlinNoise(z, y);
+      //var zw = Mathf.PerlinNoise(z, w);
  
  
-      //W coordinate
-      float wx = Mathf.PerlinNoise(w, x);
-      float wy = Mathf.PerlinNoise(w, y);
-      float wz = Mathf.PerlinNoise(w, z);
-
+      /*//W coordinate
+      var wx = Mathf.PerlinNoise(w, x);
+      var wy = Mathf.PerlinNoise(w, y);
+      var wz = Mathf.PerlinNoise(w, z);
       var outX = (xy + xz + xw + wx) / 4;
       var outY = (yx + yz + yw +wy) /4;
-      var outZ = (zx + zy + zw + wz) /4;
+      var outZ = (zx + zy + zw + wz) /4;*/
+
       
-      return new Vector3(outX-0.5f,outY-0.5f,outZ-0.5f);
-      //return (xy + xz + xw + yx + yz + yw + zx + zy + zw + wx + wy + wz)/12;
+      var outX = (xy + xz) / 2;
+      var outY = (yx + yz) /2;
+      var outZ = (zx + zy) /2;
+
+      outX -= 0.5f;
+      outY -= 0.5f;
+      outZ -= 0.5f;
+
+      outX *= 360;
+      outY *= 360;
+      outZ *= 360;
+      
+      return new Vector3(outX,outY,outZ);
     }
 
     public void SwitchParticle(FlowParticle oldP, FlowParticle newP)

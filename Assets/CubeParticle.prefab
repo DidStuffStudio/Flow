@@ -95,6 +95,13 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 6c5c2a2c7e5ecdc4480ffdd08fa2a3fd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  colours:
+  - {r: 1, g: 0.7614349, b: 0.759, a: 1}
+  - {r: 1, g: 0.5235849, b: 0.6151313, a: 1}
+  - {r: 1, g: 0.8947452, b: 0.504717, a: 1}
+  - {r: 1, g: 0.9161652, b: 0.7028302, a: 1}
+  - {r: 0.8632076, g: 0.87646246, b: 1, a: 1}
+  maxSpeed: 4
 --- !u!96 &6847241690024419721
 TrailRenderer:
   serializedVersion: 2
@@ -104,7 +111,7 @@ TrailRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 2757146671052672510}
   m_Enabled: 1
-  m_CastShadows: 0
+  m_CastShadows: 1
   m_ReceiveShadows: 0
   m_DynamicOccludee: 1
   m_MotionVectors: 1
@@ -115,7 +122,7 @@ TrailRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 10301, guid: 0000000000000000f000000000000000, type: 0}
+  - {fileID: 2100000, guid: 33270103b9b36b742a49bce76154e462, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -139,27 +146,27 @@ TrailRenderer:
   m_Time: 5
   m_Parameters:
     serializedVersion: 3
-    widthMultiplier: 1
+    widthMultiplier: 0.1
     widthCurve:
       serializedVersion: 2
       m_Curve:
       - serializedVersion: 3
         time: 0
-        value: 0.08256112
-        inSlope: 0
-        outSlope: 0
+        value: 0.21155079
+        inSlope: 0.040385615
+        outSlope: 0.040385615
         tangentMode: 0
         weightedMode: 0
         inWeight: 0.33333334
-        outWeight: 0.33333334
+        outWeight: 0.11868132
       - serializedVersion: 3
         time: 1
         value: 0
-        inSlope: 0
-        outSlope: 0
+        inSlope: -0.41015628
+        outSlope: -0.41015628
         tangentMode: 0
         weightedMode: 0
-        inWeight: 0
+        inWeight: 0.1054945
         outWeight: 0
       m_PreInfinity: 2
       m_PostInfinity: 2
@@ -198,7 +205,7 @@ TrailRenderer:
     alignment: 0
     textureMode: 0
     shadowBias: 0.5
-    generateLightingData: 0
+    generateLightingData: 1
   m_MinVertexDistance: 0.1
   m_Autodestruct: 1
   m_Emitting: 1
