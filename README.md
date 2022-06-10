@@ -1,2 +1,2 @@
 # Flow
- Flowfields and other algorithms
+A 3D implementation of a flowfield in Unity.
