@@ -390,6 +390,7 @@ GameObject:
   m_Component:
   - component: {fileID: 1614654358}
   - component: {fileID: 1614654357}
+  - component: {fileID: 1614654359}
   m_Layer: 0
   m_Name: TestField
   m_TagString: Untagged
@@ -404,14 +405,14 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1614654356}
-  m_Enabled: 1
+  m_Enabled: 0
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 38919f3040f36b048929d3337cb6d7cb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  width: 10
-  height: 10
-  depth: 10
+  width: 8
+  height: 8
+  depth: 8
   spacing: 2
   arrow: {fileID: 6452015545801001727, guid: cc5923971f1cc78458384b876ae739ce, type: 3}
   particle: {fileID: 2757146671052672510, guid: 8a5a8b6af609eeb49b9167a513c81b16, type: 3}
@@ -434,3 +435,37 @@ Transform:
   m_Father: {fileID: 0}
   m_RootOrder: 2
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1614654359
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1614654356}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4441817c96c0ce54ba31e4d310d87f99, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  arrow: {fileID: 6452015545801001727, guid: cc5923971f1cc78458384b876ae739ce, type: 3}
+  particle: {fileID: 2757146671052672510, guid: 8a5a8b6af609eeb49b9167a513c81b16, type: 3}
+  particleCount: 8
+  flowShader: {fileID: 7200000, guid: 0a4c2fe0d147319408a485499cc885a5, type: 3}
+  offsetX: 24.24
+  offsetY: 0
+  octaves: 1
+  lacunarity: 4.25
+  gain: 0.001
+  amplitude: 1
+  frequency: 0.64
+  power: 2.51
+  scale: 1
+  rateOfChange: 1
+  width: 8
+  height: 8
+  depth: 8
+  spacing: 1
+  particleDrag: 0.1
+  particleMass: 0.2
+  forceMultiplier: 5000
+  speed: 1

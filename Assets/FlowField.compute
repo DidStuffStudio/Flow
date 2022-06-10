@@ -1,14 +1,165 @@
-// Each #kernel tells which function to compile; you can have many kernels
-#pragma kernel CSMain
+#pragma kernel cs_main_forces
+#pragma kernel cs_main_particles
 
-// Create a RenderTexture with enableRandomWrite flag and set it
-// with cs.SetTexture
-RWTexture2D<float4> Result;
+struct properties
+{
+    float offset_x;
+    float offset_y;      
+    float octaves;
+    float lacunarity;
+    float gain;
+    float  amplitude;
+    float  frequency;
+    float  power;
+    float  scale;
+    float time;
+    float delta_time;
+    float rate_of_change;
+    float width;
+    float height;
+    float depth;
+    float spacing;
+    float particle_drag;
+    float particle_mass;
+    float force_multiplier;
+};
 
-[numthreads(8,8,1)]
-void CSMain (uint3 id : SV_DispatchThreadID)
+struct force
+{
+    float3 force;
+};
+
+struct position
+{
+    float3 position;
+};
+
+struct velocity
+{
+    float3 velocity;
+};
+
+struct acceleration
+{
+    float3 acceleration;
+};
+
+
+
+
+RWStructuredBuffer<properties> properties_buffer;
+RWStructuredBuffer<force> forces_buffer;
+RWStructuredBuffer<position> position_buffer;
+RWStructuredBuffer<velocity> velocity_buffer;
+RWStructuredBuffer<acceleration> acceleration_buffer;
+RWStructuredBuffer<float> perlin_buffer;
+
+float perlin_noise_2d(float2 p, int idx)
 {
 
+    p = p * properties_buffer[0].scale + float2(properties_buffer[0].offset_x,properties_buffer[0].offset_y);
+    for( int i = 0; i < properties_buffer[0].octaves; i++ )
+    {
+        const float2 j = floor( p * properties_buffer[0].frequency );
+        const float2 f = frac( p * properties_buffer[0].frequency );      
+        float2 t = f * f * f * ( f * ( f * 6.0 - 15.0 ) + 10.0 );
+        float2 a = j + float2( 0.0, 0.0 );
+        float2 b = j + float2( 1.0, 0.0 );
+        float2 c = j + float2( 0.0, 1.0 );
+        float2 d = j + float2( 1.0, 1.0 );
+        a = -1.0 + 2.0 * frac( sin( float2( dot( a, float2( 127.1, 311.7 ) ),dot( a, float2( 269.5,183.3 ) ) ) ) * 43758.5453123 );
+        b = -1.0 + 2.0 * frac( sin( float2( dot( b, float2( 127.1, 311.7 ) ),dot( b, float2( 269.5,183.3 ) ) ) ) * 43758.5453123 );
+        c = -1.0 + 2.0 * frac( sin( float2( dot( c, float2( 127.1, 311.7 ) ),dot( c, float2( 269.5,183.3 ) ) ) ) * 43758.5453123 );
+        d = -1.0 + 2.0 * frac( sin( float2( dot( d, float2( 127.1, 311.7 ) ),dot( d, float2( 269.5,183.3 ) ) ) ) * 43758.5453123 );
+        const float A = dot( a, f - float2( 0.0, 0.0 ) );
+        const float B = dot( b, f - float2( 1.0, 0.0 ) );
+        const float C = dot( c, f - float2( 0.0, 1.0 ) );
+        const float D = dot( d, f - float2( 1.0, 1.0 ) );
+        const float noise = ( lerp( lerp( A, B, t.x ), lerp( C, D, t.x ), t.y ) );              
+        perlin_buffer[idx] += properties_buffer[0].amplitude * noise;
+        properties_buffer[0].frequency *= properties_buffer[0].lacunarity;
+        properties_buffer[0].amplitude *= properties_buffer[0].gain;
+    }
+    perlin_buffer[idx] = clamp( perlin_buffer[idx], -1.0, 1.0 );
+    return pow(abs(perlin_buffer[idx]) * 0.5 + 0.5,properties_buffer[0].power);
+}
+
+float3 perlin_noise_4d(int x, int y, int z, int idx)
+{
+    //X coordinate
+    float w = properties_buffer[0].time*properties_buffer[0].rate_of_change/100;
+    const float xy = perlin_noise_2d(float2(x, y), idx);
+    const float xz = perlin_noise_2d(float2(x, z), idx);
+    const float xw = perlin_noise_2d(float2(x,w), idx);
     
+    //Ycoordinate
+    const float yx = perlin_noise_2d(float2(y, x), idx);
+    const float yz = perlin_noise_2d(float2(y, z), idx);
+    const float yw = perlin_noise_2d(float2(y, w), idx);
+ 
+    //Z coordinate
+    const float zx = perlin_noise_2d(float2(z, x), idx);
+    const float zy = perlin_noise_2d(float2(z, y), idx);
+    const float zw = perlin_noise_2d(float2(z, w), idx);
+ 
+    //W coordinate
+    const float wx = perlin_noise_2d(float2(properties_buffer[0].time, x), idx);
+    const float wy = perlin_noise_2d(float2(properties_buffer[0].time, y), idx);
+    const float wz = perlin_noise_2d(float2(properties_buffer[0].time, z), idx);
+
+    const float out_x = (xy + xz + xw + wx) / 4;
+    const float out_y = (yx + yz + yw +wy) /4;
+    const float out_z = (zx + zy + zw + wz) /4;
+      
+    return float3(out_x-0.5f,out_y-0.5f,out_z-0.5f);
+}
+
+float3 calculate_forces(float3 velocity, const float3 flow_acceleration)
+{
+    const float3 absolute_velocity = float3(abs(velocity.x), abs(velocity.y), abs(velocity.z));
+    float3 vel2 = float3(velocity.x*absolute_velocity.x,velocity.y*absolute_velocity.y,velocity.z*absolute_velocity.z);
+    const float3 drag_force = 0.5f * properties_buffer[0].particle_drag * vel2; // D = 0.5 * (rho * C * Area * vel^2)
+    const float3 drag_acc = drag_force / properties_buffer[0].particle_mass; // a = F/m
+    return flow_acceleration*properties_buffer[0].force_multiplier - drag_acc;
+}
+
+float3 calculate_new_position(const int idx, const float3 flow_acceleration)
+{
+    const float3 current_pos = position_buffer[idx].position;
+    const float3 velocity = velocity_buffer[idx].velocity;
+    const float3 acceleration = acceleration_buffer[idx].acceleration;
+    const float dt = properties_buffer[0].delta_time;
     
+    float3 new_pos = current_pos + velocity*dt + acceleration*(dt*dt*0.5f);
+    const float3 new_acc = calculate_forces(velocity, flow_acceleration);
+    const float3 new_vel = velocity + (acceleration+new_acc)*(dt*0.5f);
+    velocity_buffer[idx].velocity = new_vel;
+    acceleration_buffer[idx].acceleration = new_acc;
+    return new_pos;
+}
+
+int find_closest_vector(const int id)
+{
+    const float x = position_buffer[id].position.x;
+    const float y = position_buffer[id].position.y;
+    const float z = position_buffer[id].position.z;
+    const float spacing = properties_buffer[0].spacing;
+    const float width = properties_buffer[0].width;
+    const float height = properties_buffer[0].height;
+    const int closest_force = x/spacing + (y/spacing)*width + (z/spacing)*width*height; 
+    return int(closest_force);
+}
+
+[numthreads(8,8,8)]
+void cs_main_forces (uint3 id : SV_DispatchThreadID)
+{
+    const int index = id.x + id.y*properties_buffer[0].width + id.z*properties_buffer[0].width*properties_buffer[0].height;
+    forces_buffer[index].force = perlin_noise_4d(id.x, id.y, id.z, index);
+}
+
+[numthreads(8,1,1)]
+void cs_main_particles (uint3 id : SV_DispatchThreadID)
+{
+    const int force_index = find_closest_vector(id.x);
+    position_buffer[id.x].position = calculate_new_position(id.x, forces_buffer[force_index].force);
 }

@@ -121,7 +121,7 @@ public class FlowField : MonoBehaviour
     var dt = Time.fixedDeltaTime;
     
     var newPos = currentPos + velocity*dt + acceleration*(dt*dt*0.5f);
-    var newAcc = CalculateForces(velocity, flowAcceleration); // only needed if acceleration is not constant
+    var newAcc = CalculateForces(velocity, flowAcceleration);
     var newVel = velocity + (acceleration+newAcc)*(dt*0.5f);
     
     p.Velocity = newVel;
